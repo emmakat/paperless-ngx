@@ -356,37 +356,52 @@ read -r -a install_langs_array <<< "${install_langs}"
 	fi
 } > docker-compose.env
 
-# Modified sed commands for macOS compatibility
-sed -i '' "s/- \"8000:8000\"/- \"$PORT:8000\"/g" docker-compose.yml
+sed -i "s/- \"8000:8000\"/- \"$PORT:8000\"/g" docker-compose.yml
 
-sed -i '' "s#- \./consume:/usr/src/paperless/consume#- $CONSUME_FOLDER:/usr/src/paperless/consume#g" docker-compose.yml
+sed -i "s#- \./consume:/usr/src/paperless/consume#- $CONSUME_FOLDER:/usr/src/paperless/consume#g" docker-compose.yml
 
 if [[ -n $MEDIA_FOLDER ]] ; then
-	sed -i '' "s#- media:/usr/src/paperless/media#- $MEDIA_FOLDER:/usr/src/paperless/media#g" docker-compose.yml
-	sed -i '' "/^\s*media:/d" docker-compose.yml
+	sed -i "s#- media:/usr/src/paperless/media#- $MEDIA_FOLDER:/usr/src/paperless/media#g" docker-compose.yml
+	sed -i "/^\s*media:/d" docker-compose.yml
 fi
 
 if [[ -n $DATA_FOLDER ]] ; then
-	sed -i '' "s#- data:/usr/src/paperless/data#- $DATA_FOLDER:/usr/src/paperless/data#g" docker-compose.yml
-	sed -i '' "/^\s*data:/d" docker-compose.yml
+	sed -i "s#- data:/usr/src/paperless/data#- $DATA_FOLDER:/usr/src/paperless/data#g" docker-compose.yml
+	sed -i "/^\s*data:/d" docker-compose.yml
 fi
 
 # If the database folder was provided (not blank), replace the pgdata/dbdata volume with a bind mount
 # of the provided folder
 if [[ -n $DATABASE_FOLDER ]] ; then
 	if [[ "$DATABASE_BACKEND" == "postgres" ]] ; then
-		sed -i '' "s#- pgdata:/var/lib/postgresql/data#- $DATABASE_FOLDER:/var/lib/postgresql/data#g" docker-compose.yml
-		sed -i '' "/^\s*pgdata:/d" docker-compose.yml
+		sed -i "s#- pgdata:/var/lib/postgresql/data#- $DATABASE_FOLDER:/var/lib/postgresql/data#g" docker-compose.yml
+		sed -i "/^\s*pgdata:/d" docker-compose.yml
 	elif [[ "$DATABASE_BACKEND" == "mariadb" ]]; then
-		sed -i '' "s#- dbdata:/var/lib/mysql#- $DATABASE_FOLDER:/var/lib/mysql#g" docker-compose.yml
-		sed -i '' "/^\s*dbdata:/d" docker-compose.yml
+		sed -i "s#- dbdata:/var/lib/mysql#- $DATABASE_FOLDER:/var/lib/mysql#g" docker-compose.yml
+		sed -i "/^\s*dbdata:/d" docker-compose.yml
 	fi
 fi
 
 # remove trailing blank lines from end of file
-sed -i '' -e :a -e '/^\n*$/{$d;N;};/\n$/ba' docker-compose.yml
+sed -i -e :a -e '/^\n*$/{$d;N;};/\n$/ba' docker-compose.yml
 # if last line in file contains "volumes:", remove that line since no more named volumes are left
 l1=$(grep -n '^volumes:' docker-compose.yml | cut -d : -f 1)  # get line number containing volume: at begin of line
 l2=$(wc -l < docker-compose.yml)  # get total number of lines
 if [ "$l1" -eq "$l2" ] ; then
-	sed -i '' "/^volumes:/d" docker-compose.yml
+	sed -i "/^volumes:/d" docker-compose.yml
+fi
+
+
+docker compose pull
+
+if [ "$DATABASE_BACKEND" == "postgres" ] || [ "$DATABASE_BACKEND" == "mariadb" ] ; then
+	echo "Starting DB first for initialization"
+	docker compose up --detach db
+	# hopefully enough time for even the slower systems
+	sleep 15
+	docker compose stop
+fi
+
+docker compose run --rm -e DJANGO_SUPERUSER_PASSWORD="$PASSWORD" webserver createsuperuser --noinput --username "$USERNAME" --email "$EMAIL"
+
+docker compose up --detach
