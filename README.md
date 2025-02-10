@@ -60,7 +60,7 @@ The easiest way to deploy paperless is `docker compose`. The files in the [`/doc
 If you'd like to jump right in, you can configure a `docker compose` environment with our install script:
 
 ```bash
-bash -c "$(curl -L https://raw.githubusercontent.com/paperless-ngx/paperless-ngx/main/install-paperless-ngx.sh)"
+bash -c "$(curl -L https://raw.githubusercontent.com/emmakat/paperless-ngx/paperless-ngx/main/install-paperless-ngx.sh)"
 ```
 
 More details and step-by-step guides for alternative installation methods can be found in [the documentation](https://docs.paperless-ngx.com/setup/#installation).
